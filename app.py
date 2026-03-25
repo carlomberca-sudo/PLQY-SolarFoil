@@ -350,14 +350,21 @@ with left:
         accept_multiple_files=True,
         key="er_measurement_files",
     )
+
     matching_mode = st.radio(
-    "2. Reference matching mode",
-    options=["Smart mode", "Manual mode"],
-    index=0,
-)
-    center_wavelength = st.number_input(
-        "3. Center wavelength (nm)", min_value=200, max_value=1200, value=550, step=1
+        "2. Reference matching mode",
+        options=["Smart mode", "Manual mode"],
+        index=0,
     )
+
+    center_wavelength = st.number_input(
+        "3. Center wavelength (nm)",
+        min_value=200,
+        max_value=1200,
+        value=550,
+        step=1,
+    )
+
     grating_number = st.selectbox("4. Grating", options=[1, 2], index=1)
 
     st.subheader("Optional switches")
@@ -368,7 +375,11 @@ with left:
     simulated_thickness = None
     if run_simulation:
         simulated_thickness = st.number_input(
-            "Simulated thickness (µm)", min_value=1.0, max_value=5000.0, value=146.0, step=1.0
+            "Simulated thickness (µm)",
+            min_value=1.0,
+            max_value=5000.0,
+            value=146.0,
+            step=1.0,
         )
 
     thickness_csv = st.file_uploader(
@@ -392,54 +403,59 @@ with right:
             st.error(f"Thickness CSV error: {e}")
 
     if preview or (measurement_files and st.session_state.er_thickness_editor_df.empty):
-    if not measurement_files:
-        st.warning("Upload the measurement files first.")
-    else:
-        if matching_mode == "Smart mode":
-            review_df = build_review_table(measurement_files, manual_thickness_map=manual_thickness_map)
+        if not measurement_files:
+            st.warning("Upload the measurement files first.")
         else:
-            review_df = build_manual_review_table(measurement_files, manual_thickness_map=manual_thickness_map)
+            if matching_mode == "Smart mode":
+                review_df = build_review_table(
+                    measurement_files,
+                    manual_thickness_map=manual_thickness_map,
+                )
+            else:
+                review_df = build_manual_review_table(
+                    measurement_files,
+                    manual_thickness_map=manual_thickness_map,
+                )
 
-        st.session_state.er_review_df = review_df
-        thickness_editor_df = review_df[[
-            "Parsed name", "Type", "Family", "Matched reference", "Thickness (µm)", "Thickness source"
-        ]].copy()
-        st.session_state.er_thickness_editor_df = thickness_editor_df
+            st.session_state.er_review_df = review_df
+            thickness_editor_df = review_df[
+                ["Parsed name", "Type", "Family", "Matched reference", "Thickness (µm)", "Thickness source"]
+            ].copy()
+            st.session_state.er_thickness_editor_df = thickness_editor_df
 
     if not st.session_state.er_thickness_editor_df.empty:
         st.subheader("Editable thickness / reference review")
+
         if matching_mode == "Smart mode":
-    disabled_cols = ["Parsed name", "Type", "Family", "Matched reference", "Thickness source"]
-else:
-    disabled_cols = ["Parsed name", "Family", "Thickness source"]
+            disabled_cols = ["Parsed name", "Type", "Family", "Matched reference", "Thickness source"]
+        else:
+            disabled_cols = ["Parsed name", "Family", "Thickness source"]
 
-reference_options = []
-if not st.session_state.er_thickness_editor_df.empty:
-    reference_options = st.session_state.er_thickness_editor_df["Parsed name"].tolist()
+        reference_options = st.session_state.er_thickness_editor_df["Parsed name"].tolist()
 
-edited_df = st.data_editor(
-    st.session_state.er_thickness_editor_df,
-    width="stretch",
-    num_rows="fixed",
-    key="er_data_editor",
-    disabled=disabled_cols,
-    column_config={
-        "Type": st.column_config.SelectboxColumn(
-            "Type",
-            options=["Sample", "Reference"],
-            required=True,
-        ),
-        "Matched reference": st.column_config.SelectboxColumn(
-            "Matched reference",
-            options=reference_options,
-        ),
-        "Thickness (µm)": st.column_config.NumberColumn(
-            "Thickness (µm)",
-            min_value=0.0,
-            step=1.0,
-        ),
-    },
-)
+        edited_df = st.data_editor(
+            st.session_state.er_thickness_editor_df,
+            width="stretch",
+            num_rows="fixed",
+            key="er_data_editor",
+            disabled=disabled_cols,
+            column_config={
+                "Type": st.column_config.SelectboxColumn(
+                    "Type",
+                    options=["Sample", "Reference"],
+                    required=True,
+                ),
+                "Matched reference": st.column_config.SelectboxColumn(
+                    "Matched reference",
+                    options=reference_options,
+                ),
+                "Thickness (µm)": st.column_config.NumberColumn(
+                    "Thickness (µm)",
+                    min_value=0.0,
+                    step=1.0,
+                ),
+            },
+        )
         st.session_state.er_thickness_editor_df = edited_df.copy()
 
         review_csv = edited_df.to_csv(index=False).encode("utf-8")
@@ -459,18 +475,27 @@ edited_df = st.data_editor(
 
             editor_df = st.session_state.er_thickness_editor_df.copy()
 
-        if editor_df.empty:
+            if editor_df.empty:
+                if matching_mode == "Smart mode":
+                    editor_df = build_review_table(
+                        measurement_files,
+                        manual_thickness_map=manual_thickness_map,
+                    )
+                else:
+                    editor_df = build_manual_review_table(
+                        measurement_files,
+                        manual_thickness_map=manual_thickness_map,
+                    )
+
+            manual_map = build_thickness_map_from_editor(editor_df)
+
             if matching_mode == "Smart mode":
-                editor_df = build_review_table(measurement_files, manual_thickness_map=manual_thickness_map)
+                review_df = build_review_table(
+                    measurement_files,
+                    manual_thickness_map=manual_map,
+                )
             else:
-                editor_df = build_manual_review_table(measurement_files, manual_thickness_map=manual_thickness_map)
-
-        manual_map = build_thickness_map_from_editor(editor_df)
-
-        if matching_mode == "Smart mode":
-            review_df = build_review_table(measurement_files, manual_thickness_map=manual_map)
-        else:
-            review_df = editor_df.copy()
+                review_df = editor_df.copy()
 
             file_lookup = {extract_sample_name(f.name): f for f in measurement_files}
             warnings = []
@@ -480,7 +505,6 @@ edited_df = st.data_editor(
             sim_wl = None
             d_ref = None
 
-            # determine reference thickness target from largest available thickness among samples
             if solve_thickness:
                 for _, row in review_df.iterrows():
                     if row["Type"] == "Sample" and pd.notna(row["Thickness (µm)"]):
@@ -497,6 +521,14 @@ edited_df = st.data_editor(
                 family = row["Family"]
                 thickness = row["Thickness (µm)"]
                 thickness_source = row["Thickness source"]
+
+                if pd.isna(ref_name) or ref_name is None or str(ref_name).strip() == "":
+                    warnings.append({
+                        "Type": "Missing reference assignment",
+                        "Sample": sample_name,
+                        "Message": "No reference assigned to this sample.",
+                    })
+                    continue
 
                 if ref_name not in file_lookup:
                     warnings.append({
@@ -522,7 +554,11 @@ edited_df = st.data_editor(
                     if len(channels_s) != len(channels_r):
                         raise ValueError("Sample and reference files do not have the same number of points.")
 
-                    wl = calculate_wavelengths(channels_s, center_wavelength=center_wavelength, grating_number=grating_number)
+                    wl = calculate_wavelengths(
+                        channels_s,
+                        center_wavelength=center_wavelength,
+                        grating_number=grating_number,
+                    )
                     ratio = sample_i / np.clip(ref_i, 1e-12, None)
                     mean_ratio, min_ratio, max_ratio = band_stats(wl, ratio, 400, 700)
 
@@ -641,7 +677,7 @@ edited_df = st.data_editor(
         with tab2:
             st.subheader("Parsed files and matching")
             st.dataframe(review_df, width="stretch")
-        
+
         with tab3:
             st.subheader("Interactive graphs")
 
@@ -780,7 +816,7 @@ edited_df = st.data_editor(
             if warnings_df.empty:
                 st.success("No warnings.")
             else:
-                st.dataframe(warnings_df, width="stretch")                                        
-        
+                st.dataframe(warnings_df, width="stretch")
+
     else:
         st.info("Upload files, preview parsing, optionally edit thickness, then run the analysis.")
